@@ -1,44 +1,48 @@
-
 # =========================================================
-# 03 - PCA ANALYSIS ON VMD-BASED CLIMATE CYCLES
-# Temperature + Precipitation (bio-climatic year)
+# 03 - PCA ANALYSIS ON VMD CLIMATE CYCLES
+# Temperature + Precipitation (biological year framework)
 # Pinus halepensis study
 # =========================================================
 
 library(FactoMineR)
 library(dplyr)
 
+# =========================================================
+# 1. PATHS (ALIGNED WITH VMD PIPELINE)
+# =========================================================
+
+results_dir <- "results"
+
+temp_dir <- file.path(results_dir, "VMD_climate_temperature", "Cycle_analysis")
+precip_dir <- file.path(results_dir, "VMD_climate_precipitation", "Cycle_analysis")
 
 # =========================================================
-# Paths aligned with VMD workflow
+# 2. BIOLOGICAL YEAR TRANSFORMATION FUNCTION
 # =========================================================
 
-base_temp_folder <- "results/VMD_temperature_modes"
-base_precip_folder <- "results/VMD_precipitation_modes"
-
-temp_dir <- file.path(base_temp_folder, "Cycle_analysis")
-precip_dir <- file.path(base_precip_folder, "Cycle_analysis")
-
-# -----------------------------
-# 2. Function: transform to biological year
-# NOTE: To apply a different definition of the biological year, only the
-# df_prev (end-of-year months) and df_curr (start-of-year months) blocks
-# need to be modified; all subsequent processing steps remain unchanged.
-# -----------------------------
+# NOTE:
+# To apply a different definition of the biological year,
+# ONLY modify:
+#   - df_prev (end-of-year months)
+#   - df_curr (start-of-year months)
+# All downstream PCA steps remain unchanged.
 
 process_bioclimate_year <- function(input_dir) {
   
-  files <- list.files(input_dir, pattern = "^Cycle_.*\\.txt$", full.names = TRUE)
+  files <- list.files(input_dir,
+                       pattern = "^Cycle_.*\\.txt$",
+                       full.names = TRUE)
+  
   files <- files[!grepl("\\.transf\\.txt$", files)]
   
   for (f in files) {
     
-    cat("\nProcessing file:", basename(f), "\n")
+    cat("\nProcessing:", basename(f), "\n")
     
     df <- read.table(f, header = TRUE, check.names = FALSE)
     
     # -----------------------------
-    # Month detection (robust naming)
+    # Month detection (robust multilingual handling)
     # -----------------------------
     
     Oct <- grep("Oct", names(df), value = TRUE)
@@ -58,29 +62,29 @@ process_bioclimate_year <- function(input_dir) {
     # Previous year (Oct–Dec)
     # -----------------------------
     
-    prev <- df[, c("Year", Oct, Nov, Dec)]
-    prev$Year <- prev$Year + 1
-    colnames(prev) <- c("Year", "Oct_prev", "Nov_prev", "Dec_prev")
+    df_prev <- df[, c("Year", Oct, Nov, Dec)]
+    df_prev$Year <- df_prev$Year + 1
+    colnames(df_prev) <- c("Year", "Oct_prev", "Nov_prev", "Dec_prev")
     
     # -----------------------------
     # Current year (Jan–Sep)
     # -----------------------------
     
-    curr <- df[, c("Year", Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep)]
-    colnames(curr) <- c(
+    df_curr <- df[, c("Year", Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep)]
+    colnames(df_curr) <- c(
       "Year",
       "Jan", "Feb", "Mar", "Apr", "May",
       "Jun", "Jul", "Aug", "Sep"
     )
     
     # -----------------------------
-    # Merge biological year
+    # Merge (biological year)
     # -----------------------------
     
-    bio_year <- merge(prev, curr, by = "Year")
+    bio_year <- merge(df_prev, df_curr, by = "Year")
     
     # -----------------------------
-    # Export
+    # Export transformed file
     # -----------------------------
     
     out_file <- gsub("\\.txt$", ".transf.txt", f)
@@ -95,9 +99,9 @@ process_bioclimate_year <- function(input_dir) {
   }
 }
 
-# -----------------------------
-# 3. Run transformation
-# -----------------------------
+# =========================================================
+# 3. RUN BIOLOGICAL YEAR TRANSFORMATION
+# =========================================================
 
 process_bioclimate_year(precip_dir)
 process_bioclimate_year(temp_dir)
@@ -105,17 +109,21 @@ process_bioclimate_year(temp_dir)
 cat("\n✔ Biological year transformation completed\n")
 
 # =========================================================
-# 4. PCA ON EACH VMD CLIMATE CYCLE
+# 4. PCA ANALYSIS ON VMD CYCLES
 # =========================================================
 
-files_precip <- list.files(precip_dir, pattern = "\\.transf\\.txt$", full.names = TRUE)
+files_precip <- list.files(precip_dir,
+                            pattern = "\\.transf\\.txt$",
+                            full.names = TRUE)
 
 pca_results <- list()
 
 for (f_p in files_precip) {
   
-  cycle_name <- gsub("_Precipitation\\.transf\\.txt", "", basename(f_p))
-  cat("\n--- PCA for cycle:", cycle_name, "---\n")
+  cycle_name <- gsub("_Precipitation\\.transf\\.txt", "",
+                     basename(f_p))
+  
+  cat("\n--- PCA cycle:", cycle_name, "---\n")
   
   # -----------------------------
   # Load precipitation
@@ -124,13 +132,14 @@ for (f_p in files_precip) {
   data_p <- read.table(f_p, header = TRUE, check.names = FALSE)
   
   # -----------------------------
-  # Match temperature file
+  # Match temperature cycle
   # -----------------------------
   
-  f_t <- file.path(temp_dir, paste0(cycle_name, "_Temperature.transf.txt"))
+  f_t <- file.path(temp_dir,
+                   paste0(cycle_name, "_Temperature.transf.txt"))
   
   if (!file.exists(f_t)) {
-    cat("Missing temperature file for:", cycle_name, "\n")
+    cat("Missing temperature file:", cycle_name, "\n")
     next
   }
   
@@ -140,7 +149,10 @@ for (f_p in files_precip) {
   # Merge climate variables
   # -----------------------------
   
-  climate_data <- inner_join(data_p, data_t, by = "Year", suffix = c("_P", "_T"))
+  climate_data <- inner_join(data_p, data_t,
+                             by = "Year",
+                             suffix = c("_P", "_T"))
+  
   years <- climate_data$Year
   
   # -----------------------------
@@ -172,7 +184,7 @@ for (f_p in files_precip) {
   cat("Selected PCs:", n_pc, "/", length(eigenvalues), "\n")
   
   # -----------------------------
-  # Extract scores
+  # Extract PCA scores
   # -----------------------------
   
   scores <- as.data.frame(res_pca$ind$coord[, 1:n_pc])
