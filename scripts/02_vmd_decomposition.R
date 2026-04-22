@@ -18,7 +18,11 @@ results_dir <- "results"
 climate_temp_dir <- file.path(results_dir, "VMD_climate_temperature")
 climate_prec_dir <- file.path(results_dir, "VMD_climate_precipitation")
 growth_dir       <- file.path(results_dir, "VMD_growth")
+cycle_temp_dir <- file.path(climate_temp_dir, "Cycle_analysis")
+cycle_prec_dir <- file.path(climate_prec_dir, "Cycle_analysis")
 
+if(!dir.exists(cycle_temp_dir)) dir.create(cycle_temp_dir, recursive = TRUE)
+if(!dir.exists(cycle_prec_dir)) dir.create(cycle_prec_dir, recursive = TRUE)
 if(!dir.exists(climate_temp_dir)) dir.create(climate_temp_dir, recursive = TRUE)
 if(!dir.exists(climate_prec_dir)) dir.create(climate_prec_dir, recursive = TRUE)
 if(!dir.exists(growth_dir)) dir.create(growth_dir, recursive = TRUE)
