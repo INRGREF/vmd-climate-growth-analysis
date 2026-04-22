@@ -21,11 +21,10 @@ precip_dir <- file.path(results_dir, "VMD_climate_precipitation", "Cycle_analysi
 # =========================================================
 
 # NOTE:
-# To apply a different definition of the biological year,
-# ONLY modify:
-#   - df_prev (end-of-year months)
-#   - df_curr (start-of-year months)
-# All downstream PCA steps remain unchanged.
+# To modify the biological year definition, only adjust:
+# - df_prev (Oct–Dec grouping)
+# - df_curr (Jan–Sep grouping)
+# All PCA and PCR steps remain unchanged.
 
 process_bioclimate_year <- function(input_dir) {
   
