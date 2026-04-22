@@ -1,5 +1,5 @@
 # =========================================================
-# 02 - FULL VMD DECOMPOSITION PIPELINE
+# 02 - FULL VMD DECOMPOSITION PIPELINE (CORRIGÉ)
 # Climate (Temperature + Precipitation)
 # Growth (Tree-ring chronologies)
 # Pinus halepensis study
@@ -15,17 +15,19 @@ library(dplR)
 
 results_dir <- "results"
 
-climate_temp_dir <- file.path(results_dir, "VMD_climate_temperature")
-climate_prec_dir <- file.path(results_dir, "VMD_climate_precipitation")
+climate_temp_dir <- file.path(results_dir, "VMD_temperature_modes")
+climate_prec_dir <- file.path(results_dir, "VMD_precipitation_modes")
 growth_dir       <- file.path(results_dir, "VMD_growth")
+
 cycle_temp_dir <- file.path(climate_temp_dir, "Cycle_analysis")
 cycle_prec_dir <- file.path(climate_prec_dir, "Cycle_analysis")
 
-if(!dir.exists(cycle_temp_dir)) dir.create(cycle_temp_dir, recursive = TRUE)
-if(!dir.exists(cycle_prec_dir)) dir.create(cycle_prec_dir, recursive = TRUE)
-if(!dir.exists(climate_temp_dir)) dir.create(climate_temp_dir, recursive = TRUE)
-if(!dir.exists(climate_prec_dir)) dir.create(climate_prec_dir, recursive = TRUE)
-if(!dir.exists(growth_dir)) dir.create(growth_dir, recursive = TRUE)
+# création dossiers
+dir.create(cycle_temp_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(cycle_prec_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(climate_temp_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(climate_prec_dir, recursive = TRUE, showWarnings = FALSE)
+dir.create(growth_dir, recursive = TRUE, showWarnings = FALSE)
 
 # =========================================================
 # 2. OPTIMAL K FUNCTION
@@ -42,10 +44,10 @@ find_k_optimal <- function(series, max_k = 8, threshold = 0.06) {
 }
 
 # =========================================================
-# 3. CLIMATE VMD FUNCTION
+# 3. CLIMATE VMD FUNCTION (CORRIGÉE)
 # =========================================================
 
-run_vmd_climate <- function(file_path, output_dir, label) {
+run_vmd_climate <- function(file_path, output_dir, cycle_dir, label) {
   
   data <- read.table(file_path, header = TRUE)
   monthly <- data[, 2:13]
@@ -72,7 +74,10 @@ run_vmd_climate <- function(file_path, output_dir, label) {
     )
   }
   
-  # ---- periods ----
+  # =====================================================
+  # PERIOD TABLE
+  # =====================================================
+  
   maxK <- max(sapply(vmd_results, function(x) x$K))
   
   period_mat <- matrix(NA, 12, maxK)
@@ -86,13 +91,18 @@ run_vmd_climate <- function(file_path, output_dir, label) {
   
   write.table(
     round(period_mat, 2),
-    file = file.path(output_dir, paste0(label, "_vmd_periods_rounded.txt")),
-    sep = "\t", quote = FALSE
+    file = file.path(output_dir,
+                     paste0(label, "_vmd_periods_rounded.txt")),
+    sep = "\t",
+    quote = FALSE
   )
   
-  # ---- export modes ----
-  modes_dir <- file.path(output_dir, "modes")
-  if(!dir.exists(modes_dir)) dir.create(modes_dir, recursive = TRUE)
+  # =====================================================
+  # EXPORT MODES (CORRIGÉ POUR PCA + SCRIPT 3)
+  # =====================================================
+  
+  modes_dir <- cycle_dir
+  dir.create(modes_dir, recursive = TRUE, showWarnings = FALSE)
   
   for (m in names(vmd_results)) {
     
@@ -102,9 +112,15 @@ run_vmd_climate <- function(file_path, output_dir, label) {
     df <- cbind(Year = data[,1], as.data.frame(modes))
     colnames(df) <- c("Year", paste0("IMF_", 1:ncol(modes)))
     
-    write.csv(df,
-              file.path(modes_dir, paste0("VMD_", m, ".csv")),
-              row.names = FALSE)
+    # 🔥 FORMAT COMPATIBLE SCRIPT 3 (IMPORTANT)
+    write.table(
+      df,
+      file.path(modes_dir,
+                paste0("Cycle_", label, "_", m, ".txt")),
+      sep = "\t",
+      row.names = FALSE,
+      quote = FALSE
+    )
   }
   
   return(vmd_results)
@@ -117,8 +133,19 @@ run_vmd_climate <- function(file_path, output_dir, label) {
 temp_file <- "raw_data/temperature.txt"
 prec_file <- "raw_data/precipitation.txt"
 
-temp_results <- run_vmd_climate(temp_file, climate_temp_dir, "temperature")
-prec_results <- run_vmd_climate(prec_file, climate_prec_dir, "precipitation")
+temp_results <- run_vmd_climate(
+  temp_file,
+  climate_temp_dir,
+  cycle_temp_dir,
+  "Temperature"
+)
+
+prec_results <- run_vmd_climate(
+  prec_file,
+  climate_prec_dir,
+  cycle_prec_dir,
+  "Precipitation"
+)
 
 cat("\n✔ Climate VMD completed\n")
 
@@ -165,9 +192,14 @@ for (i in 2:ncol(tree_data)) {
     df <- cbind(Year = years, as.data.frame(aligned))
     colnames(df) <- c("Year", paste0("IMF_", 1:k_opt))
     
-    write.table(df,
-                file.path(growth_dir, paste0("VMD_", id, ".txt")),
-                sep = "\t", row.names = FALSE, quote = FALSE)
+    write.table(
+      df,
+      file.path(growth_dir,
+                paste0("VMD_", id, ".txt")),
+      sep = "\t",
+      row.names = FALSE,
+      quote = FALSE
+    )
     
     vmd_tree_results[[id]] <- list(
       frequencies = res$omega[nrow(res$omega), ],
@@ -176,7 +208,10 @@ for (i in 2:ncol(tree_data)) {
   }
 }
 
-# ---- growth periods ----
+# =========================================================
+# 6. GROWTH PERIOD TABLE
+# =========================================================
+
 maxK <- max(sapply(vmd_tree_results, function(x) x$K))
 
 growth_periods <- matrix(NA, length(vmd_tree_results), maxK)
@@ -190,8 +225,11 @@ for (t in names(vmd_tree_results)) {
 
 write.table(
   round(growth_periods, 2),
-  file = file.path(growth_dir, "tree_vmd_periods_rounded.txt"),
-  sep = "\t", quote = FALSE, col.names = NA
+  file = file.path(growth_dir,
+                   "tree_vmd_periods_rounded.txt"),
+  sep = "\t",
+  quote = FALSE,
+  col.names = NA
 )
 
 cat("\n✔ Growth VMD completed\n")
