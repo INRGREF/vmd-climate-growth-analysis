@@ -1,28 +1,29 @@
 # =========================================================
-# 03 - PCA ANALYSIS ON VMD CLIMATE CYCLES (CORRIGÉ)
+# 03 - PCA ANALYSIS ON VMD CLIMATE CYCLES (FINAL CORRIGÉ)
 # Temperature + Precipitation (biological year framework)
 # Pinus halepensis study
 # =========================================================
 
 library(FactoMineR)
 library(dplyr)
+library(tidyr)
 
 # =========================================================
-# 1. PATHS (ALIGNED WITH VMD PIPELINE)
+# 1. PATHS
 # =========================================================
 
 results_dir <- "results"
 
 temp_dir   <- file.path(results_dir,
-                        "VMD_temperature_modes",
+                        "VMD_climate_temperature",
                         "Cycle_analysis")
 
 precip_dir <- file.path(results_dir,
-                        "VMD_precipitation_modes",
+                        "VMD_climate_precipitation",
                         "Cycle_analysis")
 
 # =========================================================
-# 2. BIOLOGICAL YEAR TRANSFORMATION
+# 2. BIOCLIMATE YEAR FUNCTION
 # =========================================================
 
 process_bioclimate_year <- function(input_dir) {
@@ -39,10 +40,6 @@ process_bioclimate_year <- function(input_dir) {
     
     df <- read.table(f, header = TRUE, check.names = FALSE)
     
-    # -----------------------------
-    # Month detection
-    # -----------------------------
-    
     Oct <- grep("Oct", names(df), value = TRUE)
     Nov <- grep("Nov", names(df), value = TRUE)
     Dec <- grep("Dec", names(df), value = TRUE)
@@ -56,44 +53,26 @@ process_bioclimate_year <- function(input_dir) {
     Aug <- grep("Aou|Aug", names(df), value = TRUE)
     Sep <- grep("Sep", names(df), value = TRUE)
     
-    # -----------------------------
-    # Previous year (Oct–Dec)
-    # -----------------------------
-    
     df_prev <- df[, c("Year", Oct, Nov, Dec)]
     df_prev$Year <- df_prev$Year + 1
     colnames(df_prev) <- c("Year", "Oct_prev", "Nov_prev", "Dec_prev")
     
-    # -----------------------------
-    # Current year (Jan–Sep)
-    # -----------------------------
-    
     df_curr <- df[, c("Year", Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep)]
     colnames(df_curr) <- c(
       "Year",
-      "Jan", "Feb", "Mar", "Apr", "May",
-      "Jun", "Jul", "Aug", "Sep"
+      "Jan","Feb","Mar","Apr","May",
+      "Jun","Jul","Aug","Sep"
     )
-    
-    # -----------------------------
-    # Merge biological year
-    # -----------------------------
     
     bio_year <- merge(df_prev, df_curr, by = "Year")
     
-    # -----------------------------
-    # Export
-    # -----------------------------
-    
     out_file <- gsub("\\.txt$", ".transf.txt", f)
     
-    write.table(
-      bio_year,
-      file = out_file,
-      sep = "\t",
-      row.names = FALSE,
-      quote = FALSE
-    )
+    write.table(bio_year,
+                file = out_file,
+                sep = "\t",
+                row.names = FALSE,
+                quote = FALSE)
   }
 }
 
@@ -107,32 +86,23 @@ process_bioclimate_year(temp_dir)
 cat("\n✔ Biological year transformation completed\n")
 
 # =========================================================
-# 4. PCA ANALYSIS ON VMD CYCLES
+# 4. PCA ANALYSIS
 # =========================================================
 
 files_precip <- list.files(precip_dir,
                             pattern = "\\.transf\\.txt$",
                             full.names = TRUE)
 
+# IMPORTANT GLOBAL OBJECT FOR SCRIPT 4
 pca_results <- list()
 
 for (f_p in files_precip) {
   
-  # IMPORTANT: cycle name must match BOTH temp & precip
-  cycle_name <- gsub("_Precipitation\\.transf\\.txt", "",
-                     basename(f_p))
+  cycle_name <- gsub("_Precipitation\\.transf\\.txt", "", basename(f_p))
   
   cat("\n--- PCA cycle:", cycle_name, "---\n")
   
-  # -----------------------------
-  # Load precipitation
-  # -----------------------------
-  
   data_p <- read.table(f_p, header = TRUE, check.names = FALSE)
-  
-  # -----------------------------
-  # Match temperature file
-  # -----------------------------
   
   f_t <- file.path(temp_dir,
                    paste0(cycle_name, "_Temperature.transf.txt"))
@@ -144,10 +114,6 @@ for (f_p in files_precip) {
   
   data_t <- read.table(f_t, header = TRUE, check.names = FALSE)
   
-  # -----------------------------
-  # Merge climate variables
-  # -----------------------------
-  
   climate_data <- inner_join(data_p, data_t,
                              by = "Year",
                              suffix = c("_P", "_T"))
@@ -156,18 +122,10 @@ for (f_p in files_precip) {
   
   years <- climate_data$Year
   
-  # -----------------------------
-  # PCA input matrix
-  # -----------------------------
-  
   pca_input <- climate_data %>% select(-Year)
   pca_input[is.na(pca_input)] <- 0
   
   if (ncol(pca_input) < 2) next
-  
-  # -----------------------------
-  # PCA computation
-  # -----------------------------
   
   res_pca <- PCA(
     pca_input,
@@ -176,33 +134,22 @@ for (f_p in files_precip) {
     graph = FALSE
   )
   
-  # -----------------------------
-  # Component selection (robust)
-  # -----------------------------
-  
-  eigenvalues <- res_pca$eig[, 1]
-  threshold <- mean(eigenvalues)
-  n_pc <- max(1, sum(eigenvalues > threshold))
+  eigenvalues <- res_pca$eig[,1]
+  n_pc <- max(1, sum(eigenvalues > mean(eigenvalues)))
   
   cat("Selected PCs:", n_pc, "\n")
-  
-  # -----------------------------
-  # PCA scores
-  # -----------------------------
   
   scores <- as.data.frame(res_pca$ind$coord[, 1:n_pc, drop = FALSE])
   colnames(scores) <- paste0(cycle_name, "_PC", 1:n_pc)
   scores$Year <- years
   
-  # -----------------------------
-  # Store results
-  # -----------------------------
+  loadings <- res_pca$var$coord[, 1:n_pc, drop = FALSE]
   
   pca_results[[cycle_name]] <- list(
     scores = scores,
-    loadings = res_pca$var$coord[, 1:n_pc, drop = FALSE],
+    loadings = loadings,
     variance = sum(res_pca$eig[1:n_pc, 2])
   )
 }
 
-cat("\n✔ PCA analysis completed for all VMD cycles\n")
+cat("\n✔ PCA analysis completed\n")
