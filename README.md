@@ -1,83 +1,123 @@
 # vmd-climate-growth-analysis
-R scripts implementing Variational Mode Decomposition (VMD) for multi-scale analysis of climate and tree-growth relationships. Includes full workflow for signal decomposition, and climate–growth regression to ensure reproducible dendroclimatological analysis.
 
-# VMD Climate–Growth Analysis (Pinus halepensis)
-
-## 📌 Overview
-
-This repository contains R scripts for performing a multi-scale climate–growth analysis using Variational Mode Decomposition (VMD) and Principal Component Analysis (PCA). The workflow is applied to *Pinus halepensis* tree-ring data and associated climate variables in Mediterranean environments.
-
-The objective is to identify scale-dependent relationships between climate variability and radial tree growth.
+R scripts implementing Variational Mode Decomposition (VMD) and multi-scale statistical analysis of climate–growth relationships in *Pinus halepensis*. The workflow combines signal decomposition, cycle extraction, PCA reduction, and PCR bootstrap regression to quantify scale-dependent climate sensitivity of tree growth.
 
 ---
 
-## 🎯 Main features
+# 🌲 VMD Climate–Growth Analysis (Pinus halepensis)
 
-- Variational Mode Decomposition (VMD) of climatic and growth signals  
-- Principal Component Analysis (PCA) for dimensionality reduction  
-- Multi-scale climate–growth regression analysis  
-- Analysis of interannual to decadal climatic variability  
-- Fully reproducible R workflow  
+## 📌 Overview
+
+This repository provides a complete and reproducible R workflow for multi-scale dendroclimatological analysis based on Variational Mode Decomposition (VMD).
+
+The workflow decomposes climate (temperature and precipitation) and tree-ring growth signals into intrinsic oscillatory modes, extracts shared climatic cycles, and quantifies their relationships with tree growth using Principal Component Analysis (PCA) and PCR bootstrap regression.
+
+The approach allows the identification of climate–growth relationships across multiple temporal scales (interannual to decadal to multi-decadal).
+
+---
+
+## 🎯 Scientific objectives
+
+- Decompose climate and growth signals using VMD
+- Extract multi-scale climatic cycles
+- Transform monthly climate into biological year structure
+- Perform PCA on VMD-derived climate cycles
+- Quantify climate–growth relationships using PCR bootstrap
+- Assess statistical significance via confidence intervals
+- Identify scale-dependent climatic drivers of tree growth
 
 ---
 
 ## 📂 Repository structure
-├── scripts/
-│ ├── 01_preprocessing.R
-│ ├── 02_vmd_analysis.R
-│ ├── 03_pca_analysis.R
-│ ├── 04_regression_analysis.R
-│ └── 05_figures.R
+scripts/
+├── 01_preprocessing.R
+├── 02_vmd_pipeline.R
+├── 03_pca_analysis.R
+├── 04_pcr_climate_growth.R
+├── 05_figures_heatmap.R
+├── 06_variance_analysis.R
+
+
+# results/
+├── VMD_climate_temperature/
+│   ├── modes/
+│   ├── Cycle_analysis.txt
+│   └── Cycle_analysis/
 │
-├── data/
-│ ├── climate_data.csv
-│ ├── tree_growth_data.csv
+├── VMD_climate_precipitation/
+│   ├── modes/
+│   ├── Cycle_analysis.txt
+│   └── Cycle_analysis/
 │
-├── results/
+├── VMD_growth/
+│   ├── Cycle_analysis/
+│
 ├── figures/
-├── docs/
-├── README.md
-├── LICENSE
-└── .gitignore
+└── variance_analysis/
 
----
+## Requirements
+R version
+R ≥ 4.0
+Required packages
+VMDecomp
+dplyr
+tidyr
+FactoMineR
+ggplot2
+dplR
 
-## 💻 Requirements
+## Workflow execution
 
-R (≥ 4.0)
+Run scripts sequentially:
 
-Required packages:
-- stats  
-- signal  
-- ggplot2  
-- dplyr  
-- FactoMineR  
+VMD decomposition (climate + growth)
+PCA on VMD climate cycles
+PCR bootstrap climate–growth analysis
+Visualization (heatmaps)
+Variance contribution analysis
 
-Optional reproducibility tool:
-```r id="renv2"
-install.packages("renv")
-renv::init()
-## How to run
+## Methodological workflow
+VMD decomposition
+Monthly climate and tree-ring series decomposed into intrinsic modes (IMFs)
+Optimal number of modes estimated adaptively
+Cycle extraction
+Periodicity estimated from instantaneous frequencies
+Standardized cycle structure stored in Cycle_analysis/
+Biological year transformation
+Climate variables reorganized (Oct → Sep)
+PCA reduction
+PCA applied on VMD climate cycles
+Dimensionality reduction using eigenvalue threshold criterion
+PCR bootstrap regression
+Tree growth modeled as function of climate principal components
+Bootstrap (1000 iterations) used for uncertainty estimation
+Back-transformation to monthly climate space
+Significance assessment
+Confidence intervals (95%) used to evaluate stability of relationships
 
-Run scripts in order:
-01_preprocessing.R
-02_vmd_analysis.R
-03_pca_analysis.R
-04_regression_analysis.R
-05_figures.R
-## Data
+## Outputs
+VMD decomposed climate and growth modes
+Climate cycle periodicities
+PCA scores and loadings per cycle
+Climate–growth regression coefficients
+Bootstrap confidence intervals
+Heatmaps of scale-dependent relationships
+Variance contribution of modes and cycles
+
+## Data availability
 
 Climate and tree-ring datasets are available from the corresponding author upon reasonable request.
+
 ## Citation
 
 If you use this code, please cite:
 
-Khorchani A. (Year). VMD-based multi-scale climate–growth analysis in Pinus halepensis. GitHub repository. DOI: [to be added]
----
+Khorchani A. (2026). Multi-scale climate–growth relationships in Pinus halepensis using Variational Mode Decomposition and bootstrap regression. GitHub repository. DOI: to be added.
+
 ## License
 
 This project is licensed under the MIT License.
 
-## Reproducibility
+## Reproducibility statement
 
-This repository follows open science principles to ensure reproducibility of all analyses from raw data processing to final outputs.
+This workflow ensures full reproducibility from raw climatic and dendrochronological data to final statistical inference. All intermediate outputs are explicitly saved to enable stepwise validation and independent replication.
