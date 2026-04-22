@@ -110,10 +110,20 @@ Climate and tree-ring datasets are available from the corresponding author upon 
 
 ## Citation
 
-If you use this code, please cite:
+title: "Multi-scale growth response of *Pinus halepensis* to monthly precipitation and temperature: A Variational Mode Decomposition (VMD) approach in semi-arid Tunisia"
+message: "If you use this software, please cite this repository and associated manuscript."
 
-Khorchani A. (2026). Multi-scale climate–growth relationships in Pinus halepensis using Variational Mode Decomposition and bootstrap regression. GitHub repository. DOI: to be added.
+authors:
+  - family-names: Khorchani
+    given-names: Ali
+  - family-names: Bachtobji
+    given-names: Beya
+  - family-names: Aouinti
+    given-names: Hamdi
+  - family-names: Khaldi
+    given-names: Abdelhamid
 
+status: "manuscript submitted to Dendrochronologia"
 ## License
 
 This project is licensed under the MIT License.
