@@ -16,7 +16,7 @@ library(ggplot2)
 # ---------------------------------------------------------
 
 # Growth chronologies (by cycle)
-growth_dir <- "results/VMD_growth/chronologies"
+growth_dir <- "results/VMD_growth/CHRONOLOGIES_GROWTH_CYCLES"
 
 # Climate PCA results (already in memory: liste_scores_acp)
 
