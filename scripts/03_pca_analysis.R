@@ -1,155 +1,46 @@
 # =========================================================
-# 03 - PCA ANALYSIS ON VMD CLIMATE CYCLES (FINAL CORRIGÉ)
-# Temperature + Precipitation (biological year framework)
-# Pinus halepensis study
+# 03 - PCA FINAL
 # =========================================================
 
 library(FactoMineR)
 library(dplyr)
-library(tidyr)
-
-# =========================================================
-# 1. PATHS
-# =========================================================
 
 results_dir <- "results"
 
-temp_dir   <- file.path(results_dir,
-                        "VMD_climate_temperature",
-                        "Cycle_analysis")
+temp_dir <- file.path(results_dir, "VMD_climate_temperature", "Cycle_analysis")
+prec_dir <- file.path(results_dir, "VMD_climate_precipitation", "Cycle_analysis")
 
-precip_dir <- file.path(results_dir,
-                        "VMD_climate_precipitation",
-                        "Cycle_analysis")
+process <- function(dir) {
 
-# =========================================================
-# 2. BIOCLIMATE YEAR FUNCTION
-# =========================================================
+  files <- list.files(dir, pattern = "_Cycle_analysis.txt$", full.names = TRUE)
 
-process_bioclimate_year <- function(input_dir) {
-  
-  files <- list.files(input_dir,
-                       pattern = "^Cycle_.*\\.txt$",
-                       full.names = TRUE)
-  
-  files <- files[!grepl("\\.transf\\.txt$", files)]
-  
+  pca_list <- list()
+
   for (f in files) {
-    
-    cat("\nProcessing:", basename(f), "\n")
-    
-    df <- read.table(f, header = TRUE, check.names = FALSE)
-    
-    Oct <- grep("Oct", names(df), value = TRUE)
-    Nov <- grep("Nov", names(df), value = TRUE)
-    Dec <- grep("Dec", names(df), value = TRUE)
-    Jan <- grep("Jan", names(df), value = TRUE)
-    Feb <- grep("Fev|Feb", names(df), value = TRUE)
-    Mar <- grep("Mar", names(df), value = TRUE)
-    Apr <- grep("Avr|Apr", names(df), value = TRUE)
-    May <- grep("Mai|May", names(df), value = TRUE)
-    Jun <- grep("Jun", names(df), value = TRUE)
-    Jul <- grep("Jul", names(df), value = TRUE)
-    Aug <- grep("Aou|Aug", names(df), value = TRUE)
-    Sep <- grep("Sep", names(df), value = TRUE)
-    
-    df_prev <- df[, c("Year", Oct, Nov, Dec)]
-    df_prev$Year <- df_prev$Year + 1
-    colnames(df_prev) <- c("Year", "Oct_prev", "Nov_prev", "Dec_prev")
-    
-    df_curr <- df[, c("Year", Jan, Feb, Mar, Apr, May, Jun, Jul, Aug, Sep)]
-    colnames(df_curr) <- c(
-      "Year",
-      "Jan","Feb","Mar","Apr","May",
-      "Jun","Jul","Aug","Sep"
+
+    df <- read.table(f, header = TRUE)
+    cycle <- gsub("_Cycle_analysis.txt", "", basename(f))
+
+    x <- df[, -1]
+    x[is.na(x)] <- 0
+
+    res <- PCA(x, scale.unit = TRUE, graph = FALSE)
+
+    eig <- res$eig[,1]
+    ncp <- max(1, sum(eig > mean(eig)))
+
+    pca_list[[cycle]] <- list(
+      scores = as.data.frame(res$ind$coord[,1:ncp]),
+      loadings = res$var$coord[,1:ncp]
     )
-    
-    bio_year <- merge(df_prev, df_curr, by = "Year")
-    
-    out_file <- gsub("\\.txt$", ".transf.txt", f)
-    
-    write.table(bio_year,
-                file = out_file,
-                sep = "\t",
-                row.names = FALSE,
-                quote = FALSE)
   }
+
+  return(pca_list)
 }
 
-# =========================================================
-# 3. RUN TRANSFORMATION
-# =========================================================
+pca_temp <- process(temp_dir)
+pca_prec <- process(prec_dir)
 
-process_bioclimate_year(precip_dir)
-process_bioclimate_year(temp_dir)
+pca_results <- c(pca_temp, pca_prec)
 
-cat("\n✔ Biological year transformation completed\n")
-
-# =========================================================
-# 4. PCA ANALYSIS
-# =========================================================
-
-files_precip <- list.files(precip_dir,
-                            pattern = "\\.transf\\.txt$",
-                            full.names = TRUE)
-
-# IMPORTANT GLOBAL OBJECT FOR SCRIPT 4
-pca_results <- list()
-
-for (f_p in files_precip) {
-  
-  cycle_name <- gsub("_Precipitation\\.transf\\.txt", "", basename(f_p))
-  
-  cat("\n--- PCA cycle:", cycle_name, "---\n")
-  
-  data_p <- read.table(f_p, header = TRUE, check.names = FALSE)
-  
-  f_t <- file.path(temp_dir,
-                   paste0(cycle_name, "_Temperature.transf.txt"))
-  
-  if (!file.exists(f_t)) {
-    cat("Missing temperature file:", cycle_name, "\n")
-    next
-  }
-  
-  data_t <- read.table(f_t, header = TRUE, check.names = FALSE)
-  
-  climate_data <- inner_join(data_p, data_t,
-                             by = "Year",
-                             suffix = c("_P", "_T"))
-  
-  if (nrow(climate_data) < 10) next
-  
-  years <- climate_data$Year
-  
-  pca_input <- climate_data %>% select(-Year)
-  pca_input[is.na(pca_input)] <- 0
-  
-  if (ncol(pca_input) < 2) next
-  
-  res_pca <- PCA(
-    pca_input,
-    scale.unit = TRUE,
-    ncp = min(ncol(pca_input), 10),
-    graph = FALSE
-  )
-  
-  eigenvalues <- res_pca$eig[,1]
-  n_pc <- max(1, sum(eigenvalues > mean(eigenvalues)))
-  
-  cat("Selected PCs:", n_pc, "\n")
-  
-  scores <- as.data.frame(res_pca$ind$coord[, 1:n_pc, drop = FALSE])
-  colnames(scores) <- paste0(cycle_name, "_PC", 1:n_pc)
-  scores$Year <- years
-  
-  loadings <- res_pca$var$coord[, 1:n_pc, drop = FALSE]
-  
-  pca_results[[cycle_name]] <- list(
-    scores = scores,
-    loadings = loadings,
-    variance = sum(res_pca$eig[1:n_pc, 2])
-  )
-}
-
-cat("\n✔ PCA analysis completed\n")
+cat("\n✔ PCA OK\n")
