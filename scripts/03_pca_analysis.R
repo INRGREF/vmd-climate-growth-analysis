@@ -1,5 +1,5 @@
 # =========================================================
-# 03 - PCA ANALYSIS ON VMD CLIMATE CYCLES
+# 03 - PCA ANALYSIS ON VMD CLIMATE CYCLES (CORRIGÉ)
 # Temperature + Precipitation (biological year framework)
 # Pinus halepensis study
 # =========================================================
@@ -13,18 +13,17 @@ library(dplyr)
 
 results_dir <- "results"
 
-temp_dir <- file.path(results_dir, "VMD_climate_temperature", "Cycle_analysis")
-precip_dir <- file.path(results_dir, "VMD_climate_precipitation", "Cycle_analysis")
+temp_dir   <- file.path(results_dir,
+                        "VMD_temperature_modes",
+                        "Cycle_analysis")
+
+precip_dir <- file.path(results_dir,
+                        "VMD_precipitation_modes",
+                        "Cycle_analysis")
 
 # =========================================================
-# 2. BIOLOGICAL YEAR TRANSFORMATION FUNCTION
+# 2. BIOLOGICAL YEAR TRANSFORMATION
 # =========================================================
-
-# NOTE:
-# To modify the biological year definition, only adjust:
-# - df_prev (Oct–Dec grouping)
-# - df_curr (Jan–Sep grouping)
-# All PCA and PCR steps remain unchanged.
 
 process_bioclimate_year <- function(input_dir) {
   
@@ -41,7 +40,7 @@ process_bioclimate_year <- function(input_dir) {
     df <- read.table(f, header = TRUE, check.names = FALSE)
     
     # -----------------------------
-    # Month detection (robust multilingual handling)
+    # Month detection
     # -----------------------------
     
     Oct <- grep("Oct", names(df), value = TRUE)
@@ -77,13 +76,13 @@ process_bioclimate_year <- function(input_dir) {
     )
     
     # -----------------------------
-    # Merge (biological year)
+    # Merge biological year
     # -----------------------------
     
     bio_year <- merge(df_prev, df_curr, by = "Year")
     
     # -----------------------------
-    # Export transformed file
+    # Export
     # -----------------------------
     
     out_file <- gsub("\\.txt$", ".transf.txt", f)
@@ -99,7 +98,7 @@ process_bioclimate_year <- function(input_dir) {
 }
 
 # =========================================================
-# 3. RUN BIOLOGICAL YEAR TRANSFORMATION
+# 3. RUN TRANSFORMATION
 # =========================================================
 
 process_bioclimate_year(precip_dir)
@@ -119,6 +118,7 @@ pca_results <- list()
 
 for (f_p in files_precip) {
   
+  # IMPORTANT: cycle name must match BOTH temp & precip
   cycle_name <- gsub("_Precipitation\\.transf\\.txt", "",
                      basename(f_p))
   
@@ -131,7 +131,7 @@ for (f_p in files_precip) {
   data_p <- read.table(f_p, header = TRUE, check.names = FALSE)
   
   # -----------------------------
-  # Match temperature cycle
+  # Match temperature file
   # -----------------------------
   
   f_t <- file.path(temp_dir,
@@ -152,6 +152,8 @@ for (f_p in files_precip) {
                              by = "Year",
                              suffix = c("_P", "_T"))
   
+  if (nrow(climate_data) < 10) next
+  
   years <- climate_data$Year
   
   # -----------------------------
@@ -161,6 +163,8 @@ for (f_p in files_precip) {
   pca_input <- climate_data %>% select(-Year)
   pca_input[is.na(pca_input)] <- 0
   
+  if (ncol(pca_input) < 2) next
+  
   # -----------------------------
   # PCA computation
   # -----------------------------
@@ -168,25 +172,25 @@ for (f_p in files_precip) {
   res_pca <- PCA(
     pca_input,
     scale.unit = TRUE,
-    ncp = ncol(pca_input),
+    ncp = min(ncol(pca_input), 10),
     graph = FALSE
   )
   
   # -----------------------------
-  # Component selection (Guiot criterion)
+  # Component selection (robust)
   # -----------------------------
   
   eigenvalues <- res_pca$eig[, 1]
   threshold <- mean(eigenvalues)
-  n_pc <- sum(eigenvalues > threshold)
+  n_pc <- max(1, sum(eigenvalues > threshold))
   
-  cat("Selected PCs:", n_pc, "/", length(eigenvalues), "\n")
+  cat("Selected PCs:", n_pc, "\n")
   
   # -----------------------------
-  # Extract PCA scores
+  # PCA scores
   # -----------------------------
   
-  scores <- as.data.frame(res_pca$ind$coord[, 1:n_pc])
+  scores <- as.data.frame(res_pca$ind$coord[, 1:n_pc, drop = FALSE])
   colnames(scores) <- paste0(cycle_name, "_PC", 1:n_pc)
   scores$Year <- years
   
@@ -196,8 +200,8 @@ for (f_p in files_precip) {
   
   pca_results[[cycle_name]] <- list(
     scores = scores,
-    loadings = res_pca$var$coord[, 1:n_pc],
-    variance = res_pca$eig[n_pc, 3]
+    loadings = res_pca$var$coord[, 1:n_pc, drop = FALSE],
+    variance = sum(res_pca$eig[1:n_pc, 2])
   )
 }
 
