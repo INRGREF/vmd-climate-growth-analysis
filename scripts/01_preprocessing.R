@@ -1,42 +1,33 @@
-
 # =========================================
 # 01 - DATA PREPROCESSING & PROJECT SETUP
 # VMD Climate–Growth Analysis (Pinus halepensis)
 # =========================================
 
 # -------------------------
-# Project structure
+# Global project path
 # -------------------------
-# Before analysis, the project is organized as follows:
-#
-# VMD_Climate_Growth_Project/
-# ├── raw_data/   -> original unmodified datasets
-# ├── data/       -> processed and cleaned data
-# ├── scripts/    -> all R scripts (this workflow)
-# ├── results/    -> numerical outputs (PCA, VMD, regressions)
-# ├── figures/    -> publication-ready figures
-# └── docs/       -> methodological notes
-#
-# This structure ensures reproducibility and transparency.
+base_dir <- "VMD_Climate_Growth_Project"
+
+raw_dir     <- file.path(base_dir, "raw_data")
+data_dir    <- file.path(base_dir, "data")
+results_dir <- file.path(base_dir, "results")
 
 # -------------------------
 # Load libraries
 # -------------------------
-
 library(dplR)
 
 # -------------------------
 # Load raw tree-ring data
 # -------------------------
-
 rw_raw <- read.table(
-  "raw_data/PH_TUN_raw_ring_width.txt",
+  file.path(raw_dir, "PH_TUN_raw_ring_width.txt"),
   na.strings = "NA"
 )
+
 # -------------------------
 # Detrending (Negative Exponential)
 # -------------------------
-
 detrend_out <- detrend(
   rw_raw,
   method = "ModNegExp",
@@ -50,22 +41,20 @@ rw_index <- as.data.frame(detrend_out$series)
 # -------------------------
 # Save processed data
 # -------------------------
-
 write.table(
   rw_index,
-  file = "data/PH_TUN_ring_width_index.txt",
+  file = file.path(data_dir, "PH_TUN_ring_width_index.txt"),
   row.names = FALSE
 )
 
 # -------------------------
 # Regional chronology
 # -------------------------
-
 regional_chronology <- chron(rw_index)
 
 write.table(
   regional_chronology,
-  file = "results/PH_TUN_regional_chronology.txt",
+  file = file.path(results_dir, "PH_TUN_regional_chronology.txt"),
   row.names = FALSE,
   sep = "\t"
 )
