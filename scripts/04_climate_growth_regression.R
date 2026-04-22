@@ -1,5 +1,5 @@
 # =========================================================
-# 04 - CLIMATE–GROWTH REGRESSION (PCR Bootstrap)
+# 04 - CLIMATE–GROWTH REGRESSION (PCR Bootstrap - FINAL)
 # Multi-scale VMD-based climate–growth relationships
 # Pinus halepensis (Tunisia)
 # =========================================================
@@ -13,23 +13,30 @@ library(ggplot2)
 library(FactoMineR)
 
 # ---------------------------------------------------------
-# 2. Global paths (HARMONIZED WITH VMD WORKFLOW)
+# 2. PATHS
 # ---------------------------------------------------------
 
-# Growth data (from VMD growth decomposition)
 growth_dir <- "results/VMD_growth/CHRONOLOGIES_GROWTH_CYCLES"
 
-# Climate PCA results (created in Script 3)
-temp_dir   <- "results/VMD_temperature_modes/Cycle_analysis"
-precip_dir <- "results/VMD_precipitation_modes/Cycle_analysis"
+# IMPORTANT: must match Script 3
+temp_dir   <- "results/VMD_climate_temperature/Cycle_analysis"
+precip_dir <- "results/VMD_climate_precipitation/Cycle_analysis"
+
+# =========================================================
+# IMPORTANT: pca_results must exist from Script 3
+# =========================================================
+
+if (!exists("pca_results")) {
+  stop("pca_results not found. Run Script 3 first.")
+}
 
 # ---------------------------------------------------------
-# 3. PCR Bootstrap (multi-variable climate cycles)
+# 3. MULTI-VARIABLE PCR
 # ---------------------------------------------------------
 
 growth_files <- list.files(
   growth_dir,
-  pattern = "Growth_Chronology_.*\\.csv$",
+  pattern = "Chrono_.*\\.csv$",
   full.names = TRUE
 )
 
@@ -39,22 +46,31 @@ n_boot <- 1000
 for (f in growth_files) {
   
   # -----------------------------
-  # Cycle identification
+  # Cycle identification (ROBUST)
   # -----------------------------
-  cycle_raw <- gsub("Growth_Chronology_|\\.csv", "", basename(f))
-  cycle_name <- ifelse(cycle_raw == "Trend", "Cycle_Trend", cycle_raw)
+  cycle_raw <- gsub("Chrono_|\\.csv", "", basename(f))
+  cycle_name <- ifelse(cycle_raw == "Trend",
+                        "Cycle_Trend",
+                        cycle_raw)
   
-  # Check PCA availability
-  if (!(cycle_name %in% names(pca_results))) next
+  # Skip if PCA missing
+  if (!(cycle_name %in% names(pca_results))) {
+    cat("Skipping missing PCA cycle:", cycle_name, "\n")
+    next
+  }
   
   cat("\nPCR regression for:", cycle_name, "\n")
   
   # -----------------------------
-  # Load growth + PCA scores
+  # Load data
   # -----------------------------
   df_growth <- read.csv(f) %>% select(Year, std)
+  
   df_scores <- pca_results[[cycle_name]]$scores
   loadings  <- pca_results[[cycle_name]]$loadings
+  
+  # safety check
+  if (ncol(df_scores) < 2 || nrow(df_scores) < 10) next
   
   df_pcr <- inner_join(df_growth, df_scores, by = "Year") %>% drop_na()
   if (nrow(df_pcr) < 20) next
@@ -75,18 +91,18 @@ for (f in growth_files) {
   }
   
   # -----------------------------
-  # Back-transformation (CP → monthly climate)
+  # Back-transform CP → monthly climate
   # -----------------------------
   mean_coefs_cp <- colMeans(boot_coefs_cp, na.rm = TRUE)
-  coefs_monthly <- mean_coefs_cp %*% t(loadings)
   
-  boot_monthly <- boot_coefs_cp %*% t(loadings)
+  coefs_monthly <- mean_coefs_cp %*% t(loadings)
+  boot_monthly  <- boot_coefs_cp %*% t(loadings)
   
   inf95 <- apply(boot_monthly, 2, quantile, 0.025, na.rm = TRUE)
   sup95 <- apply(boot_monthly, 2, quantile, 0.975, na.rm = TRUE)
   
   # -----------------------------
-  # Output formatting
+  # Output
   # -----------------------------
   res_df <- data.frame(
     Cycle = cycle_name,
@@ -100,7 +116,7 @@ for (f in growth_files) {
 }
 
 # ---------------------------------------------------------
-# 4. Single-variable cycles (T or P only)
+# 4. SINGLE VARIABLE CYCLES
 # ---------------------------------------------------------
 
 results_solo <- list()
@@ -122,40 +138,46 @@ for (cyc in names(cycles_solo)) {
     "_Precipitation.transf.txt"
   )
   
-  f_clim <- file.path(cycles_solo[[cyc]]$dir, paste0(cyc, suffix))
+  f_clim <- file.path(cycles_solo[[cyc]]$dir,
+                      paste0(cyc, suffix))
   
   if (!file.exists(f_clim)) {
     cat("Missing file:", f_clim, "\n")
     next
   }
   
-  cat("\nSolo PCR for:", cyc, "\n")
+  cat("\nSolo PCR:", cyc, "\n")
   
   data_clim <- read.table(f_clim, header = TRUE, check.names = FALSE)
   data_input <- data_clim %>% select(-Year)
   data_input[is.na(data_input)] <- 0
   
-  res.pca <- PCA(data_input, scale.unit = TRUE, ncp = 12, graph = FALSE)
+  res.pca <- PCA(data_input,
+                 scale.unit = TRUE,
+                 ncp = min(12, ncol(data_input)),
+                 graph = FALSE)
   
-  eigenvalues <- res.pca$eig[, 1]
-  nb_cp_keep <- sum(eigenvalues > mean(eigenvalues))
-  if (nb_cp_keep < 1) nb_cp_keep <- 1
+  eigenvalues <- res.pca$eig[,1]
+  nb_cp <- max(1, sum(eigenvalues > mean(eigenvalues)))
   
-  scores <- as.data.frame(res.pca$ind$coord[, 1:nb_cp_keep, drop = FALSE])
-  colnames(scores) <- paste0("Dim", 1:nb_cp_keep)
+  scores <- as.data.frame(res.pca$ind$coord[, 1:nb_cp, drop = FALSE])
+  colnames(scores) <- paste0("Dim", 1:nb_cp)
   scores$Year <- data_clim$Year
   
-  loadings <- res.pca$var$coord[, 1:nb_cp_keep, drop = FALSE]
+  loadings <- res.pca$var$coord[, 1:nb_cp, drop = FALSE]
   
-  # growth file
-  f_growth <- file.path(growth_dir, paste0("Growth_Chronology_", cyc, ".csv"))
+  f_growth <- file.path(growth_dir,
+                        paste0("Growth_Chronology_", cyc, ".csv"))
+  
   if (!file.exists(f_growth)) next
   
   df_growth <- read.csv(f_growth) %>% select(Year, std)
+  
   df_pcr <- inner_join(df_growth, scores, by = "Year") %>% drop_na()
   if (nrow(df_pcr) < 20) next
   
   vars_cp <- setdiff(colnames(scores), "Year")
+  
   boot_coefs_cp <- matrix(NA, nrow = n_boot, ncol = length(vars_cp))
   
   set.seed(123)
@@ -166,12 +188,12 @@ for (cyc in names(cycles_solo)) {
   }
   
   mean_coefs_cp <- colMeans(boot_coefs_cp, na.rm = TRUE)
+  
   coefs_monthly <- mean_coefs_cp %*% t(loadings)
+  boot_monthly  <- boot_coefs_cp %*% t(loadings)
   
-  boot_monthly <- boot_coefs_cp %*% t(loadings)
-  
-  inf95 <- apply(boot_monthly, 2, quantile, 0.025)
-  sup95 <- apply(boot_monthly, 2, quantile, 0.975)
+  inf95 <- apply(boot_monthly, 2, quantile, 0.025, na.rm = TRUE)
+  sup95 <- apply(boot_monthly, 2, quantile, 0.975, na.rm = TRUE)
   
   month_names <- paste0(var_code, "_", rownames(loadings))
   
@@ -187,13 +209,14 @@ for (cyc in names(cycles_solo)) {
 }
 
 # ---------------------------------------------------------
-# 5. Final merge
+# 5. FINAL MERGE
 # ---------------------------------------------------------
 
 all_results <- bind_rows(c(final_results_list, results_solo))
 
 final_df <- all_results %>%
   mutate(Signif = ifelse(Inf95 * Sup95 > 0, "*", "")) %>%
-  separate(Term, into = c("Variable", "Month"), sep = "_", fill = "right")
+  separate(Term, into = c("Variable", "Month"),
+           sep = "_", fill = "right")
 
-cat("\n✔ PCR analysis completed successfully.\n")
+cat("\n✔ PCR analysis completed successfully\n")
