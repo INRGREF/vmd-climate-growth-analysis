@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+
+title: "VMD Climate–Growth Analysis in Pinus halepensis (Tunisia)"
+
+version: "v1.0.1"
+
+date-released: 2026-04-23
+
+authors:
+  - family-names: Khorchani
+    given-names: Ali
+    affiliation: INRGREF
+  - family-names: Bachtobji
+    given-names: Beya
+  - family-names: Aouinti
+    given-names: Hamdi
+  - family-names: Khaldi
+    given-names: Abdelhamid
+
+doi: 10.5281/zenodo.19697464
+
+url: "https://github.com/INRGREF/vmd-climate-growth-analysis"
+
+license: MIT
+
+repository-code: "https://github.com/INRGREF/vmd-climate-growth-analysis"
+
+keywords:
+  - dendroclimatology
+  - VMD
+  - tree rings
+  - climate reconstruction
+  - Pinus halepensis
+  - Tunisia
+  - PCA
+  - time series decomposition
+
+abstract: >
+  This repository provides a full reproducible R workflow implementing
+  Variational Mode Decomposition (VMD), PCA, and PCR bootstrap methods
+  to analyze multi-scale climate–growth relationships in Pinus halepensis
+  forests in semi-arid Tunisia.
