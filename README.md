@@ -29,6 +29,8 @@ The approach allows the identification of climate–growth relationships across 
 ---
 
 ## 📂 Repository structure
+
+raw_data/
 scripts/
 ├── 01_preprocessing.R
 ├── 02_vmd_pipeline.R
@@ -36,24 +38,27 @@ scripts/
 ├── 04_pcr_climate_growth.R
 ├── 05_figures_heatmap.R
 ├── 06_variance_analysis.R
-
-
-# results/
-├── VMD_climate_temperature/
+results/
+├── VMD_temperature_modes/
 │   ├── modes/
-│   ├── Cycle_analysis.txt
-│   └── Cycle_analysis/
+│   ├── Cycle_analysis/
+│       └── Grouped_cycles
+        └── Merged_cycles
+           └──Biological_year
 │
 ├── VMD_climate_precipitation/
-│   ├── modes/
-│   ├── Cycle_analysis.txt
-│   └── Cycle_analysis/
-│
+│    ├── modes/
+│   ├── Cycle_analysis/
+│       └── Grouped_cycles
+        └── Merged_cycles
+           └──Biological_year/
+│              
 ├── VMD_growth/
 │   ├── Cycle_analysis/
-│
+│   ├── Grouped_cycles/
+        └──Mean_chronologies
 ├── figures/
-└── variance_analysis/
+├── data/
 
 ## Requirements
 R version
@@ -110,7 +115,7 @@ Climate and tree-ring datasets are available from the corresponding author upon 
 
 ## Citation
 
-title: "Multi-scale growth response of *Pinus halepensis* to monthly precipitation and temperature: A Variational Mode Decomposition (VMD) approach in semi-arid Tunisia"
+title: "Beyond Classical Response Functions: Variational Mode Decomposition Reveals Frequency-Specific Climate Controls on Pinus halepensis Growth in Semi-Arid Tunisia"
 If you use this repository, please cite:
 
 Khorchani, A., Bachtobji, B., Aouinti, H., & Khaldi, A. (2026).  
