@@ -1,4 +1,6 @@
-# vmd-climate-growth-analysis
+# VMD Climate–Growth Analysis Pipeline
+
+[![DOI](https://zenodo.org/badge/1216983686.svg)](https://doi.org/10.5281/zenodo.20072373)
 
 R scripts implementing Variational Mode Decomposition (VMD) and multi-scale statistical analysis of climate–growth relationships in *Pinus halepensis*. The workflow combines signal decomposition, cycle extraction, PCA reduction, and PCR bootstrap regression to quantify scale-dependent climate sensitivity of tree growth.
 
