@@ -1,86 +1,99 @@
 # =========================================================
-# 04 - PCR CLIMATE–GROWTH (FINAL ROBUST VERSION)
+# 04 - PCR REGRESSION 
 # =========================================================
 
-library(dplyr)
-library(tidyr)
-library(FactoMineR)
+# -----------------------------
+# 1. PATHS AND FILE LISTING
+# -----------------------------
 
-# =========================================================
-# PATHS
-# =========================================================
 
-results_dir <- "results"
-growth_dir <- file.path(results_dir, "VMD_growth", "Cycle_analysis")
+fichiers_c <- list.files(output_dir, pattern = "\\.txt$", full.names = TRUE)
 
-# =========================================================
-# LOAD PCA RESULTS (must come from script 3)
-# =========================================================
-# pca_results <- ... (loaded from Script 3 environment or RDS file)
+# -----------------------------
+# 2. INITIALIZATION
+# -----------------------------
+final_results_list <- list()
+noms_acp_dispo <- names(liste_scores_acp_all)
+start_year <- 1902
+end_year   <- 2001
+n_boot     <- 2000
 
-# =========================================================
-# PARAMETERS
-# =========================================================
-
-n_boot <- 1000
-final_results <- list()
-
-# =========================================================
-# 1. MULTI-REGRESSION (MULTI PC CYCLES)
-# =========================================================
-
-growth_files <- list.files(growth_dir,
-                            pattern = "Growth_.*\\.txt$",
-                            full.names = TRUE)
-
-for (f in growth_files) {
-
-  cycle <- gsub("Growth_|\\.txt", "", basename(f))
-
-  if (!(cycle %in% names(pca_results))) next
-
-  df_g <- read.table(f, header = TRUE) %>% select(Year, -Year)
-  df_g <- read.table(f, header = TRUE) %>% select(Year, everything())
-
-  df_growth <- df_g[, c("Year", "std")]
-
-  df_scores <- pca_results[[cycle]]$scores
-  loadings  <- pca_results[[cycle]]$loadings
-
-  df <- inner_join(df_growth, df_scores, by = "Year") %>% drop_na()
-
-  if (nrow(df) < 20) next
-
-  vars <- setdiff(names(df_scores), "Year")
-  form <- as.formula(paste("std ~", paste(vars, collapse = "+")))
-
-  boot <- matrix(NA, n_boot, length(vars))
-
+# -----------------------------
+# 3. PCR PROCESSING LOOP
+# -----------------------------
+for (f in fichiers_c) {
+  
+  # A. Extract exact cycle ID (e.g., "28")
+  id_croiss <- gsub("cycle_|_mean\\.txt|temperature_|precipitation_", "", basename(f))
+  if (grepl("trend", id_croiss)) id_croiss <- "trend"
+  
+  # B. Exact matching with PCA keys
+  nom_acp_match <- noms_acp_dispo[grepl(paste0("_", id_croiss, "$"), noms_acp_dispo)]
+  
+  if (id_croiss == "trend") {
+    nom_acp_match <- noms_acp_dispo[grepl("trend", noms_acp_dispo)]
+  }
+  
+  if (length(nom_acp_match) == 0) next
+  
+  cat("✅ Processing:", id_croiss, "with PCA key:", nom_acp_match[1], "\n")
+  nom_key <- nom_acp_match[1]
+  
+  # -----------------------------
+  # 4. DATA LOADING AND SYNC
+  # -----------------------------
+  df_growth <- read.table(f, header = TRUE) %>% 
+    select(Year, std) %>% filter(Year >= start_year & Year <= end_year)
+  
+  acp_data  <- liste_scores_acp_all[[nom_key]]
+  df_scores <- acp_data$scores %>% filter(Year >= start_year & Year <= end_year)
+  loadings  <- as.matrix(acp_data$loadings)
+  
+  df_pcr <- inner_join(df_growth, df_scores, by = "Year")
+  if (nrow(df_pcr) < 15) next
+  
+  # -----------------------------
+  # 5. BOOTSTRAP PCR
+  # -----------------------------
+  vars_cp <- setdiff(colnames(df_scores), "Year")
+  formule <- as.formula(paste("std ~", paste(vars_cp, collapse = " + ")))
+  boot_coefs_cp <- matrix(NA, nrow = n_boot, ncol = length(vars_cp))
+  
   set.seed(123)
   for (i in 1:n_boot) {
-    d <- df[sample(nrow(df), replace = TRUE), ]
-    m <- lm(form, data = d)
-    boot[i, ] <- coef(m)[-1]
+    df_b <- df_pcr[sample(nrow(df_pcr), replace = TRUE), ]
+    mod <- lm(formule, data = df_b)
+    cf <- coef(mod)[-1]
+    if (length(cf) == length(vars_cp)) boot_coefs_cp[i, ] <- cf
   }
-
-  mean_cp <- colMeans(boot)
-
-  monthly <- mean_cp %*% t(loadings)
-  boot_m  <- boot %*% t(loadings)
-
-  res <- data.frame(
-    Cycle = cycle,
-    Term  = rownames(loadings),
-    Coef  = as.vector(monthly),
-    Inf95 = apply(boot_m, 2, quantile, 0.025),
-    Sup95 = apply(boot_m, 2, quantile, 0.975)
+  
+  # -----------------------------
+  # 6. BACK-TRANSFORMATION
+  # -----------------------------
+  boot_coefs_cp[is.na(boot_coefs_cp)] <- 0
+  mean_coefs_cp <- colMeans(boot_coefs_cp)
+  coefs_mensuels <- as.vector(mean_coefs_cp %*% t(loadings))
+  boot_mensuels <- boot_coefs_cp %*% t(loadings)
+  inf95 <- apply(boot_mensuels, 2, quantile, 0.025, na.rm = TRUE)
+  sup95 <- apply(boot_mensuels, 2, quantile, 0.975, na.rm = TRUE)
+  
+  final_results_list[[id_croiss]] <- data.frame(
+    Cycle = id_croiss, Terme = rownames(loadings),
+    Coef = coefs_mensuels, Inf95 = as.vector(inf95), Sup95 = as.vector(sup95)
   )
-
-  final_results[[cycle]] <- res
 }
 
-# =========================================================
-# 2. SINGLE VARIABLE CASES
-# =========================================================
+# -----------------------------
+# 7. FINAL DATA RECONSTRUCTION
+# -----------------------------
+final_df_pcr <- bind_rows(final_results_list) %>%
+  mutate(Signif = ifelse(Inf95 * Sup95 > 0, "*", "")) %>%
+  mutate(
+    Variable = ifelse(grepl("_P$|_P_|^P_|precip", Terme, ignore.case=T), "P", "T"),
+    Mois = stringr::str_extract(Terme, "Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|Fev|Avr|Mai|Aou")
+  )
 
-cat("\n✔ PCR completed\n")
+# -----------------------------
+# 8. OUTPUT SUMMARY
+# -----------------------------
+cat("\nDone! Processed cycles:", paste(unique(final_df_pcr$Cycle), collapse = ", "), "\n")
